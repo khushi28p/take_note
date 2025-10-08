@@ -13,37 +13,87 @@ export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
   const [notes, setNotes] = useState([]);
 
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const getNotes = async() => {
+  const getNotes = async () => {
     const res = await fetch("/api/notes");
 
     const data = await res.json();
 
     console.log(data);
     setNotes(data);
-  }
+  };
 
   useEffect(() => {
     getNotes();
-  }, []);
+  }, []);
 
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
+    setTitle("");
+    setDescription("");
+    setIsEditing(false);
+    setEditingNoteId(null);
   }, []);
 
-  const handleCreateTask = async() => {
-    const res = await fetch("/api/notes", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({title, description})});
+  const handleCreateTask = async () => {
+    const res = await fetch("/api/notes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title, description }),
+    });
 
     setTitle("");
     setDescription("");
     setIsModalOpen(false);
 
-    if(res.ok) getNotes();
+    if (res.ok) getNotes();
+  };
+
+  const handleEditModal = (id: string) => {
+    const noteToEdit = notes.find((n: any) => n.id === id);
+
+    if (!noteToEdit) return;
+
+    setIsEditing(true);
+    setIsModalOpen(true);
+
+    setEditingNoteId(id);
+    setTitle(noteToEdit?.title);
+    setDescription(noteToEdit?.description || ""); // Use empty string if description is missing
+  };
+
+  const handleEdit = async() => {
+    if (!editingNoteId) return; 
+
+  const res = await fetch(`/api/notes/${editingNoteId}`, {
+    method: "PUT",
+    headers: {
+      "Content-type": "application/json",
+    },
+    body: JSON.stringify({ title, description }),
+  });
+
+  if (res.ok) {
+    handleModalClose();
+    getNotes();
   }
+  };
+
+  const handleDelete = async (id: string) => {
+    const res = await fetch(`/api/notes/${id}`, {
+      method: "DELETE",
+    });
+
+    if (res.ok) {
+      getNotes();
+    }
+  };
 
   // Close handler that only fires if the click is on the backdrop itself
   const handleBackdropClick = (e: MouseEvent<HTMLDivElement>) => {
@@ -79,8 +129,9 @@ export default function Dashboard() {
           >
             <div className="flex items-center justify-between border-b border-border/70 pb-4 mb-6">
               <h2 className="text-3xl font-extrabold text-primary flex items-center">
-                {/* Primary colored sparkle icon for visual interest */}
-                <Sparkles className="w-5 h-5 mr-2 text-primary" /> Create Task
+                <Sparkles className="w-5 h-5 mr-2 text-primary" />
+                {/* 💡 Update Title Text */}
+                {isEditing ? "Edit Task" : "Create Task"}
               </h2>
               <Button
                 onClick={handleModalClose}
@@ -134,31 +185,45 @@ export default function Dashboard() {
             <div className="flex space-x-4 mt-8">
               <Button
                 className="flex-1 bg-secondary text-secondary-foreground hover:bg-secondary/90 shadow-md cursor-pointer"
-                onClick={handleModalClose} // Uses the clean closure function
+                onClick={handleModalClose}
               >
                 Cancel
               </Button>
-              <Button
-                className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xl shadow-primary/40 cursor-pointer"
-                onClick={handleCreateTask} // Placeholder for submission
-              >
-                <Sparkles className="inline w-4 h-4 mr-1" /> Create Task
-              </Button>
+              {isEditing ? (
+                <Button
+                  className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xl shadow-primary/40 cursor-pointer"
+                  // 💡 Correctly call handleEdit (which now uses state)
+                  onClick={handleEdit}
+                  disabled={!title} // Disable if title is empty
+                >
+                  <Sparkles className="inline w-4 h-4 mr-1" /> Update Task
+                </Button>
+              ) : (
+                <Button
+                  className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xl shadow-primary/40 cursor-pointer"
+                  onClick={handleCreateTask}
+                  disabled={!title} // Disable if title is empty
+                >
+                  <Sparkles className="inline w-4 h-4 mr-1" /> Create Task
+                </Button>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      <div>
-        {notes.map((note, index) => (
-          <NotesCard
-            note={note}
-            key={index}
-            onEdit={() => "Edit"} 
-            onDelete={() => "Delete"} 
-          />
-        ))}
-      </div>
+      <main className="w-full max-w-6xl mx-auto p-4 sm:p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 grid-flow-row-dense">
+          {notes.map((note, index) => (
+            <NotesCard
+              note={note}
+              key={index}
+              onEdit={handleEditModal}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
+      </main>
     </div>
   );
 }

@@ -10,8 +10,8 @@ const updateNoteSchema = z.object({
     description: z.string().optional(),
 })
 
-export async function PUT(req: NextRequest, {params}: {params: {id:string}}){
-   const noteId = params.id;
+export async function PUT(req: NextRequest, {params}: {params: Promise<{id:string}>}){
+   const {id} = await params;
     const session = await getServerSession(authOptions);
 
     if(!session?.user){
@@ -24,7 +24,7 @@ export async function PUT(req: NextRequest, {params}: {params: {id:string}}){
 
         const updatedNote = await prisma.note.update({
             where: {
-                id: noteId,
+                id: id,
             },
             data: {
                 title, description
@@ -39,8 +39,8 @@ export async function PUT(req: NextRequest, {params}: {params: {id:string}}){
     }
 }
 
-export async function DELETE(req: NextRequest, {params}: {params: {id:string}}){
-    const noteId = params.id;
+export async function DELETE(req: NextRequest, {params}: {params: Promise<{id:string}>}){
+    const { id }= await params;
     const session = await getServerSession(authOptions);
 
     if(!session?.user){
@@ -48,7 +48,7 @@ export async function DELETE(req: NextRequest, {params}: {params: {id:string}}){
     }
 
     try{
-        const deleteNote = await prisma.note.delete({where: {id: noteId}});
+        const deleteNote = await prisma.note.delete({where: {id: id}});
 
         return NextResponse.json(deleteNote, {status: 200})
     }
